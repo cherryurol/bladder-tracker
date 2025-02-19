@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bladder Efficiency Calculator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        .input-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-radius: 4px;
+        }
+        .chart-container {
+            margin-top: 20px;
+            height: 400px;
+            position: relative;
+        }
+        .hidden {
+            display: none;
+        }
+        .summary-stats {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .accuracy-indicator {
+            background: #eee;
+            height: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .accuracy-bar {
+            height: 100%;
+            background: #4CAF50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        /* Password protection styles */
+        #loginScreen {
+            max-width: 500px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        #loginScreen h1 {
+            margin-bottom: 20px;
+        }
+        #loginScreen input {
+            width: 80%;
+            margin: 10px auto;
+        }
+        #loginScreen button {
+            margin-top: 20px;
+            width: 60%;
+        }
+        .login-error {
+            color: #e74c3c;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Password protection login screen -->
+    <div id="loginScreen">
+        <h1>Bladder Efficiency Calculator</h1>
+        <p>Please enter the password to access this tool:</p>
+        <input type="password" id="passwordInput" placeholder="Enter password">
+        <div id="loginError" class="login-error hidden">Incorrect password. Please try again.</div>
+        <button onclick="checkPassword()">Login</button>
+    </div>
+
+    <div id="mainApp" class="hidden">
+        <div class="container">
+            <h1>Bladder Efficiency Calculator</h1>
+
+            <div id="startTimeSection">
+                <div class="input-group">
+                    <h2>Study Start</h2>
+                    <label for="gender">Select Gender</label>
+                    <select id="gender">
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                    <label>Start Time (HH:MM)</label>
+                    <input type="time" id="startTime">
+                    <button onclick="startStudy()">Start Study</button>
+                </div>
+            </div>
+
+            <div id="measurementSection" class="hidden">
+                <div class="input-group">
+                    <h2>Data Entry</h2>
+                    <label>Measurement Time (HH:MM)</label>
+                    <input type="time" id="voidTime">
+                    <label>Fill Time (minutes)</label>
+                    <input type="number" id="fillTime" readonly>
+                    <label>Voided Volume (mL)</label>
+                    <input type="number" id="voidVolume" placeholder="Example: 350">
+                    <label>Voiding Time (seconds)</label>
+                    <input type="number" id="voidDuration" placeholder="Example: 25">
+                    <button onclick="calculate()">Calculate Efficiency</button>
+                    <button onclick="saveData()">SAVE</button>
+                    <button onclick="clearData()">CLEAR</button>
+                    <button onclick="loadData()">LOAD</button>
+                    <button onclick="downloadData()">DOWNLOAD</button>
+                </div>
+            </div>
+
+            <div id="results" class="hidden">
+                <div class="results">
+                    <h2>Current Measurement Results</h2>
+                    <p>Fill Rate: <span id="fillRate">-</span> mL/min</p>
+                    <p>Storage Efficiency: <span id="storageEfficiency">-</span></p>
+                    <p>Voiding Efficiency: <span id="voidingEfficiency">-</span></p>
+                </div>
+
+                <div class="summary-stats">
+                    <h2>Study Summary Statistics</h2>
+                    <p>Number of Measurements: <span id="measurementCount">0</span></p>
+                    <p>Average Storage Efficiency: <span id="avgStorageEfficiency">-</span></p>
+                    <p>Average Voiding Efficiency: <span id="avgVoidingEfficiency">-</span></p>
+
+                    <h3>Data Reliability</h3>
+                    <p>Study Accuracy:</p>
+                    <div class="accuracy-indicator">
+                        <div class="accuracy-bar" id="accuracyBar"></div>
+                    </div>
+                    <p>Coefficient of Variation (Storage): <span id="cvStorage">-</span></p>
+                    <p>Coefficient of Variation (Voiding): <span id="cvVoiding">-</span></p>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="efficiencyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Password protection logic
+        function checkPassword() {
+            const correctPassword = "bladcalc2025";
+            const enteredPassword = document.getElementById('passwordInput').value;
+            
+            if (enteredPassword === correctPassword) {
+                // Show main app and hide login screen
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+            } else {
+                // Show error message
+                document.getElementById('loginError').classList.remove('hidden');
+                // Clear password field
+                document.getElementById('passwordInput').value = '';
+            }
+        }
+
+        // Add enter key listener for password field
+        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        // Main app logic
+        let studyData = {
+            startTime: null,
+            lastTime: null,
+            storage: [],
+            voiding: [],
+            timestamps: [],
+            gender: null,
+            age: 0 // Add age to the study data
+        };
+        let chart = null;
+
+        function startStudy() {
+            const startTimeInput = document.getElementById('startTime').value;
+            const genderInput = document.getElementById('gender').value;
+
+            if (!startTimeInput || !genderInput) {
+                alert('Please select gender and enter the start time');
+                return;
+            }
+
+            studyData.startTime = startTimeInput;
+            studyData.lastTime = startTimeInput;
+            studyData.gender = genderInput;
+
+            // Prompt for age
+            const age = prompt("Please enter the patient's age:");
+            if (age !== null) {
+                studyData.age = parseInt(age, 10);
+            }
+
+            document.getElementById('startTimeSection').classList.add('hidden');
+            document.getElementById('measurementSection').classList.remove('hidden');
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        function calculate() {
+            const voidTime = document.getElementById('voidTime').value;
+            const voidVolume = parseFloat(document.getElementById('voidVolume').value);
+            const voidDuration = parseFloat(document.getElementById('voidDuration').value);
+            const fillTime = calculateFillTime(voidTime);
+            const gender = studyData.gender;
+            const age = studyData.age;
+
+            if (!voidTime || isNaN(voidVolume) || isNaN(voidDuration) || !gender || isNaN(age)) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const voidMin = 50;  // Minimum normal volume
+            const voidMax = 500; // Maximum normal volume
+
+            // Calculate normal voiding time with adjustments
+            let baseTime = gender === 'female' ? 15 : 25;
+            let volumeAdjustment = voidVolume > 400 ? 5 : (voidVolume < 200 ? -5 : 0);
+            let ageAdjustment = age > 65 ? 3 : 0;
+            let normalVoidingTime = baseTime + volumeAdjustment + ageAdjustment;
+
+            // Calculations
+            const fillRate = voidVolume / fillTime;
+
+            // Voiding efficiency calculation
+            const flowRate = voidVolume / voidDuration;
+            const MA_voiding = flowRate / normalVoidingTime; // Mechanical Ability
+            const DA_voiding = Math.min((voidVolume * normalVoidingTime) / (voidMax * voidDuration), 1); // Dimensional Ability
+            const voiding_efficiency = Math.min(MA_voiding * DA_voiding, 1);
+
+            // Storage efficiency calculation
+            const MA_storage = voidVolume / (fillTime * fillRate);
+            const DA_storage = (voidVolume - voidMin) / (voidMax - voidMin);
+            const storage_efficiency = Math.min(MA_storage * DA_storage, 1);
+
+            // Save results
+            studyData.storage.push(storage_efficiency);
+            studyData.voiding.push(voiding_efficiency);
+            studyData.timestamps.push(voidTime);
+            studyData.lastTime = voidTime;
+
+            // Update display
+            updateDisplay(fillRate, storage_efficiency, voiding_efficiency);
+            updateStatistics();
+            updateChart();
+        }
+
+        function calculateFillTime(currentTime) {
+            if (!studyData.lastTime || !currentTime) return 0;
+
+            const [lastHours, lastMinutes] = studyData.lastTime.split(':').map(Number);
+            const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
+
+            let lastTotalMinutes = lastHours * 60 + lastMinutes;
+            let currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+            if (currentTotalMinutes < lastTotalMinutes) {
+                currentTotalMinutes += 24 * 60;
+            }
+
+            return currentTotalMinutes - lastTotalMinutes;
+        }
+
+        function updateDisplay(fillRate, storageEff, voidingEff) {
+            document.getElementById('fillRate').textContent = fillRate.toFixed(2);
+            document.getElementById('storageEfficiency').textContent = (storageEff * 100).toFixed(1) + '%';
+            document.getElementById('voidingEfficiency').textContent = (voidingEff * 100).toFixed(1) + '%';
+        }
+
+        function updateStatistics() {
+            const n = studyData.storage.length;
+            if (n === 0) return;
+
+            // Mean values
+            const meanStorage = studyData.storage.reduce((a, b) => a + b, 0) / n;
+            const meanVoiding = studyData.voiding.reduce((a, b) => a + b, 0) / n;
+
+            // Standard deviations
+            const stdStorage = Math.sqrt(studyData.storage.reduce((acc, val) => 
+                acc + Math.pow(val - meanStorage, 2), 0) / n);
+            const stdVoiding = Math.sqrt(studyData.voiding.reduce((acc, val) => 
+                acc + Math.pow(val - meanVoiding, 2), 0) / n);
+
+            // Coefficients of variation
+            const cvStorage = meanStorage !== 0 ? (stdStorage / meanStorage) * 100 : 0;
+            const cvVoiding = meanVoiding !== 0 ? (stdVoiding / meanVoiding) * 100 : 0;
+
+            // Calculate accuracy (inversely proportional to average CV)
+            const accuracy = Math.max(0, Math.min(100, 100 - (cvStorage + cvVoiding) / 2));
+
+            // Update display
+            document.getElementById('measurementCount').textContent = n;
+            document.getElementById('avgStorageEfficiency').textContent = (meanStorage * 100).toFixed(1) + '%';
+            document.getElementById('avgVoidingEfficiency').textContent = (meanVoiding * 100).toFixed(1) + '%';
+            document.getElementById('cvStorage').textContent = isNaN(cvStorage) ? '-' : cvStorage.toFixed(1) + '%';
+            document.getElementById('cvVoiding').textContent = isNaN(cvVoiding) ? '-' : cvVoiding.toFixed(1) + '%';
+            document.getElementById('accuracyBar').style.width = accuracy + '%';
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('efficiencyChart').getContext('2d');
+
+            const data = {
+                labels: studyData.timestamps,
+                datasets: [
+                    {
+                        label: 'Storage Efficiency',
+                        data: studyData.storage.map(v => v * 100),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Voiding Efficiency',
+                        data: studyData.voiding.map(v => v * 100),
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }
+                ]
+            };
+
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Efficiency (%)'
+                        }
+                    }
+                }
+            };
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: options
+            });
+        }
+
+        document.getElementById('voidTime').addEventListener('input', function() {
+            const fillTime = calculateFillTime(this.value);
+            document.getElementById('fillTime').value = fillTime;
+        });
+
+        function saveData() {
+            localStorage.setItem('studyData', JSON.stringify(studyData));
+            alert('Data saved successfully!');
+        }
+
+        function loadData() {
+            const savedData = localStorage.getItem('studyData');
+            if (savedData) {
+                studyData = JSON.parse(savedData);
+                alert('Data loaded successfully!');
+                updateStatistics();
+                updateChart();
+            } else {
+                alert('No saved data found.');
+            }
+        }
+
+        function downloadData() {
+            const dataStr = JSON.stringify(studyData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'studyData.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function clearData() {
+            document.getElementById('voidTime').value = '';
+            document.getElementById('voidVolume').value = '';
+            document.getElementById('voidDuration').value = '';
+            document.getElementById('fillTime').value = '';
+
+            document.getElementById('fillRate').textContent = '-';
+            document.getElementById('storageEfficiency').textContent = '-';
+            document.getElementById('voidingEfficiency').textContent = '-';
+            document.getElementById('measurementCount').textContent = '0';
+            document.getElementById('avgStorageEfficiency').textContent = '-';
+            document.getElementById('avgVoidingEfficiency').textContent = '-';
+            document.getElementById('cvStorage').textContent = '-';
+            document.getElementById('cvVoiding').textContent = '-';
+            document.getElementById('accuracyBar').style.width = '0%';
+
+            studyData = {
+                startTime: null,
+                lastTime: null,
+                storage: [],
+                voiding: [],
+                timestamps: [],
+                gender: null,
+                age: 0
+            };
+
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+
+            alert('Data cleared successfully!');
+        }
+    </script>
+</body>
+</html>
